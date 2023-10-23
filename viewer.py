@@ -128,8 +128,7 @@ def main():
     parser.add_argument('--vflip', help='vertical flip', action='store_true')
     parser.add_argument('--mode', 
                             choices=['2', '3', '4', '5'],
-                            default=None, const='2',
-                            nargs='?',
+                            default=2,
                             help='the camera mode (default: 2)', 
                         )
     parser.add_argument('calconfig', help='calibration config file', type=str, nargs='?', default=None)
