@@ -75,6 +75,19 @@ of distortion.
 
 Stop the viewer with `ctrl-c`.
 
+The view takes a '--mode' flag as an option to select the different sensor modes of the camera. On my jetson-nano
+the modes are:
+
+| mode | resolution  | fps     | 
+| ---- | ----------- | ------- |
+| 0    | 3264 x 2464 |  21     |
+| 1    | 3264 x 1848 |  28     |
+| 2    | 1920 x 1080 |  29.999 |
+| 3    | 1640 x 1232 |  29.999 |
+| 4    | 1280 x 720  |  59.999 |
+| 5    | 1280 x 720  | 120.000 |
+
+
 ### Capturing Images
 
 You'll need a checkerboard ready before running this - see the reference section.

@@ -127,7 +127,7 @@ def main():
     parser.add_argument('--hflip', help='horizontal flip', action='store_true')
     parser.add_argument('--vflip', help='vertical flip', action='store_true')
     parser.add_argument('--mode', 
-                            choices=['2', '3', '4', '5'],
+                            choices=['0', '1', '2', '3', '4', '5'],
                             default=None,
                             help='the camera mode (default: 2)', 
                         )
