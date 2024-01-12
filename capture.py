@@ -22,6 +22,7 @@ def build_gst_pipeline(cam_mode, hflip, vflip):
     
     # hard coded for now
     cam_mode, cam_width, cam_height = callib.size_for_mode(cam_mode)
+    fps = callib.maxfps_for_mode(cam_mode)
     
     # build the pipeline
     nodes = []
@@ -34,7 +35,7 @@ def build_gst_pipeline(cam_mode, hflip, vflip):
     
     node = Gst.ElementFactory.make('capsfilter')
     nodes.append(node)
-    Gst.util_set_object_arg(node, "caps", f"video/x-raw(memory:NVMM), framerate=(fraction)30/1")
+    Gst.util_set_object_arg(node, "caps", f"video/x-raw(memory:NVMM), framerate=(fraction){fps}/1")
 
     node = Gst.ElementFactory.make('nvvideoconvert')
     nodes.append(node)
@@ -52,6 +53,8 @@ def build_gst_pipeline(cam_mode, hflip, vflip):
     
     appsink = node = Gst.ElementFactory.make('appsink')
     nodes.append(node)
+    Gst.util_set_object_arg(node, "max-buffers", "5")
+    Gst.util_set_object_arg(node, "drop", "true")
 
     pipe = Gst.Pipeline.new('pipe')
     for node in nodes:
@@ -92,14 +95,30 @@ def camera(appsink, cam_mode):
             'data': data,
         }
         yield item
-    
+
 
 def preview(pipe):
     with open("/dev/fb0", "wb") as fb:
         for item in pipe:
-            data = item['data']
+            image_data = item['data']
+            image_width, image_height = item['width'], item['height']
+
+            if image_width != 1920 or image_height != 1080:
+                scale = min(1920/image_width, 1080/image_height)
+                new_w, new_h = int(scale*image_width), int(scale*image_height)
+                left = int((1920 - new_w)/2)
+                right = 1920 - new_w -left
+                top = int((1080 - new_h)/2)
+                bottom = 1080 - new_h - top
+                
+                image_array = np.ndarray((image_height, image_width, 4), np.uint8, image_data)
+                image_array = cv2.resize(image_array, (new_w, new_h))
+                image_array = cv2.copyMakeBorder(image_array, top, bottom, left, right, cv2.BORDER_CONSTANT, (0, 0, 0))
+
+                image_data = image_array.tobytes()
+            
             fb.seek(0, io.SEEK_SET)
-            fb.write(data)
+            fb.write(image_data)
             yield item
         
 
@@ -117,11 +136,13 @@ def warmup(pipe, *, duration):
         yield item
 
 
-def capture(pipe, capture_dir, num_images, time_delay):
+def capture(pipe, cam_mode, capture_dir, num_images, time_delay):
+    
+    fps = callib.maxfps_for_mode(cam_mode)
     
     current_idx = 0
     current_loop = 0
-    loop_max = time_delay * 30
+    loop_max = time_delay * fps
     
     for item in pipe:
         # yield first to make logic below cleaner
@@ -131,7 +152,7 @@ def capture(pipe, capture_dir, num_images, time_delay):
         if current_loop < loop_max:
             if current_loop == 0:
                 print(f"{current_idx:02d} waiting...", end="")
-            if current_loop % 30 == 0:
+            if current_loop % fps == 0:
                 print(f"{current_loop:02d}...", end="", flush=True)
             current_loop += 1
             continue
@@ -158,7 +179,7 @@ def build_pipeline(appsink, cam_mode, capture_dir, num_images, time_delay):
     pipe = camera(appsink, cam_mode)
     pipe = preview(pipe)
     pipe = warmup(pipe, duration=5)
-    pipe = capture(pipe, capture_dir, num_images, time_delay)
+    pipe = capture(pipe, cam_mode, capture_dir, num_images, time_delay)
     
     return pipe
 
@@ -199,6 +220,7 @@ def main():
     parser.add_argument('-t', '--time-delay', help='seconds between images in timed-capture mode', type=int, default=5)
     parser.add_argument('--hflip', help='horizontal flip (display only)', action='store_true')
     parser.add_argument('--vflip', help='vertical flip (display only)', action='store_true')
+    parser.add_argument('-m', '--mode', help='the camera mode (default: 2)', choices=[0, 1, 2, 3, 4, 5], type=int, default=2)
     parser.add_argument('capture_root', help='root directory to save captured images', type=str)
     args = parser.parse_args()
     
@@ -208,15 +230,14 @@ def main():
     os.makedirs(capture_dir, exist_ok=True)
         
     # run the capture
-    cam_mode = 2
-    gpipe, appsink = build_gst_pipeline(cam_mode, args.hflip, args.vflip)
+    gpipe, appsink = build_gst_pipeline(args.mode, args.hflip, args.vflip)
     if not gpipe:
         return
     
-    pipe = build_pipeline(appsink, cam_mode, capture_dir, args.num_images, args.time_delay)
+    pipe = build_pipeline(appsink, args.mode, capture_dir, args.num_images, args.time_delay)
     run(gpipe, pipe)
     
-    save_config(capture_dir, cam_mode)
+    save_config(capture_dir, args.mode)
 
 
 if __name__ == "__main__":

@@ -9,5 +9,5 @@ if platform.system() == "Linux":
 else:
     from .display import display, display_sbs
 
-from .camera import size_for_mode, mode_for_size
+from .camera import size_for_mode, mode_for_size, maxfps_for_mode
 

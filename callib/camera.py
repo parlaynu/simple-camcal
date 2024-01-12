@@ -1,5 +1,15 @@
 
 
+def maxfps_for_mode(camera_mode):
+    if camera_mode is None:
+        camera_mode = 2
+    if not isinstance(camera_mode, int):
+        camera_mode = int(camera_mode)
+
+    max_fps = [10, 10, 30, 30, 60, 120]
+    return max_fps[camera_mode]
+
+
 def size_for_mode(camera_mode):
     cam_mode_sizes = [
         [3264, 2464],
@@ -13,7 +23,6 @@ def size_for_mode(camera_mode):
     # the default camera mode
     if camera_mode is None:
         camera_mode = 2
-    
     if not isinstance(camera_mode, int):
         camera_mode = int(camera_mode)
 
